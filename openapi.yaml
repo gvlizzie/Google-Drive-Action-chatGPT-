@@ -4,7 +4,7 @@ info:
   title: Google Drive Export Action
   version: "1.0.0"
 servers:
-  - url: ${APP_BASE_URL}
+  - url: https://drive-export-action-4nrv.onrender.com
 paths:
   /oauth/authorize:
     get:
@@ -128,7 +128,7 @@ components:
       type: oauth2
       flows:
         authorizationCode:
-          authorizationUrl: ${APP_BASE_URL}/oauth/authorize
-          tokenUrl: ${APP_BASE_URL}/oauth/token
+          authorizationUrl: https://drive-export-action-4nrv.onrender.com/oauth/authorize
+          tokenUrl: https://drive-export-action-4nrv.onrender.com/oauth/token
           scopes:
             drive.readonly: Read files to export
