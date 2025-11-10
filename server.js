@@ -38,14 +38,6 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-import path from 'path';
-import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// serve /privacy and /terms from /public
-app.use(express.static(path.join(__dirname, 'public')));
-
 
 // Demo-grade in-memory stores. Swap for Redis in prod.
 const grants = new Map();    // grant -> { sub, exp }
