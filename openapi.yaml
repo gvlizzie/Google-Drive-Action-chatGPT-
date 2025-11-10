@@ -1,15 +1,15 @@
-# File: openapi.yaml
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Google Drive Export Action
-  version: "1.0.0"
+  version: "1.0.1"
 servers:
   - url: https://drive-export-action-4nrv.onrender.com
+
 paths:
   /oauth/authorize:
     get:
       operationId: oauthAuthorize
-      summary: OAuth2 Authorization Endpoint (GPT starts here)
+      summary: Start OAuth (redirects user to Google)
       parameters:
         - in: query
           name: client_id
@@ -32,38 +32,42 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "302": { description: Redirect to Google }
+        "302":
+          description: Redirect to Google
+
   /oauth/token:
     post:
       operationId: oauthToken
-      summary: OAuth2 Token Endpoint (GPT exchanges grant for JWT)
+      summary: Exchange code/refresh for API token (JWT)
       requestBody:
         required: true
         content:
           application/x-www-form-urlencoded:
             schema:
               type: object
+              required: [grant_type]
               properties:
-                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                grant_type:
+                  type: string
+                  enum: [authorization_code, refresh_token]
                 code: { type: string }
                 refresh_token: { type: string }
                 redirect_uri: { type: string }
                 client_id: { type: string }
                 client_secret: { type: string }
-              required: [grant_type]
       responses:
         "200":
-          description: JWT for Action calls
+          description: Access token
           content:
             application/json:
               schema:
-                type: object
-                required: [access_token, token_type, expires_in]
-                properties:
-                  access_token: { type: string }
-                  token_type: { type: string, example: Bearer }
-                  expires_in: { type: integer }
-                  refresh_token: { type: string }
+                $ref: '#/components/schemas/TokenResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /drive/files:
     get:
       operationId: listFiles
@@ -73,16 +77,23 @@ paths:
         - in: query
           name: q
           schema: { type: string }
-          description: "Drive query, e.g., name contains 'Q4' and mimeType='application/vnd.google-apps.document'"
+          description: "Example: name contains 'Report'"
         - in: query
           name: pageSize
-          schema: { type: integer, default: 25, maximum: 100 }
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
       responses:
         "200":
           description: Files
           content:
             application/json:
-              schema: { type: object }
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /drive/export:
     post:
       operationId: exportFile
@@ -92,24 +103,29 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [fileId, exportMimeType]
-              properties:
-                fileId: { type: string }
-                exportMimeType: { type: string }
+            schema: { $ref: '#/components/schemas/ExportRequest' }
       responses:
         "200":
           description: Download URL
           content:
             application/json:
-              schema:
-                type: object
-                required: [downloadUrl, expiresInSeconds]
-                properties:
-                  fileName: { type: string }
-                  downloadUrl: { type: string, format: uri }
-                  expiresInSeconds: { type: integer }
+              schema: { $ref: '#/components/schemas/ExportResponse' }
+        "400":
+          description: Missing params
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /download/{id}:
     get:
       operationId: downloadOnce
@@ -122,6 +138,7 @@ paths:
       responses:
         "200": { description: File stream }
         "410": { description: Expired }
+
 components:
   securitySchemes:
     OAuth2:
@@ -132,3 +149,61 @@ components:
           tokenUrl: https://drive-export-action-4nrv.onrender.com/oauth/token
           scopes:
             drive.readonly: Read files to export
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer }
+        refresh_token: { type: string }
+
+    File:
+      type: object
+      required: [id, name, mimeType]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        mimeType: { type: string }
+        modifiedTime: { type: string, format: date-time }
+        owners:
+          type: array
+          items:
+            type: object
+            properties:
+              emailAddress: { type: string }
+
+    FileListResponse:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items: { $ref: '#/components/schemas/File' }
+
+    ExportRequest:
+      type: object
+      required: [fileId, exportMimeType]
+      properties:
+        fileId: { type: string }
+        exportMimeType:
+          type: string
+          examples:
+            - application/pdf
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+    ExportResponse:
+      type: object
+      required: [downloadUrl, expiresInSeconds]
+      properties:
+        fileName: { type: string }
+        downloadUrl: { type: string, format: uri }
+        expiresInSeconds: { type: integer }
