@@ -1,0 +1,34 @@
+# File: render.yaml
+services:
+  - type: web
+    name: drive-export-action
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: APP_BASE_URL
+        value: https://REPLACE-WITH-YOUR-SERVICE.onrender.com
+      - key: GOOGLE_OAUTH_SCOPES
+        value: https://www.googleapis.com/auth/drive.readonly
+      - key: JWT_ISSUER
+        value: drive-action
+      - key: JWT_AUDIENCE
+        value: drive-action-client
+      - key: JWT_TTL_SECONDS
+        value: "3600"
+      - key: GRANT_TTL_SECONDS
+        value: "300"
+      - key: DOWNLOAD_TTL_SECONDS
+        value: "600"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: JWT_SIGNING_KEY
+        sync: false
