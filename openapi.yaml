@@ -1,0 +1,134 @@
+# File: openapi.yaml
+openapi: 3.0.3
+info:
+  title: Google Drive Export Action
+  version: "1.0.0"
+servers:
+  - url: ${APP_BASE_URL}
+paths:
+  /oauth/authorize:
+    get:
+      operationId: oauthAuthorize
+      summary: OAuth2 Authorization Endpoint (GPT starts here)
+      parameters:
+        - in: query
+          name: client_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: redirect_uri
+          required: true
+          schema: { type: string, format: uri }
+        - in: query
+          name: response_type
+          required: true
+          schema: { type: string, enum: [code] }
+        - in: query
+          name: scope
+          required: false
+          schema: { type: string }
+        - in: query
+          name: state
+          required: true
+          schema: { type: string }
+      responses:
+        "302": { description: Redirect to Google }
+  /oauth/token:
+    post:
+      operationId: oauthToken
+      summary: OAuth2 Token Endpoint (GPT exchanges grant for JWT)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                code: { type: string }
+                refresh_token: { type: string }
+                redirect_uri: { type: string }
+                client_id: { type: string }
+                client_secret: { type: string }
+              required: [grant_type]
+      responses:
+        "200":
+          description: JWT for Action calls
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_in]
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, example: Bearer }
+                  expires_in: { type: integer }
+                  refresh_token: { type: string }
+  /drive/files:
+    get:
+      operationId: listFiles
+      summary: List/search files in Google Drive
+      security: [{ OAuth2: [] }]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: "Drive query, e.g., name contains 'Q4' and mimeType='application/vnd.google-apps.document'"
+        - in: query
+          name: pageSize
+          schema: { type: integer, default: 25, maximum: 100 }
+      responses:
+        "200":
+          description: Files
+          content:
+            application/json:
+              schema: { type: object }
+  /drive/export:
+    post:
+      operationId: exportFile
+      summary: Export a Google Doc/Sheet/Slide and return a one-time download link
+      security: [{ OAuth2: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileId, exportMimeType]
+              properties:
+                fileId: { type: string }
+                exportMimeType: { type: string }
+      responses:
+        "200":
+          description: Download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [downloadUrl, expiresInSeconds]
+                properties:
+                  fileName: { type: string }
+                  downloadUrl: { type: string, format: uri }
+                  expiresInSeconds: { type: integer }
+  /download/{id}:
+    get:
+      operationId: downloadOnce
+      summary: One-time, expiring download
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: File stream }
+        "410": { description: Expired }
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: ${APP_BASE_URL}/oauth/authorize
+          tokenUrl: ${APP_BASE_URL}/oauth/token
+          scopes:
+            drive.readonly: Read files to export
