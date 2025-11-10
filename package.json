@@ -1,1 +1,21 @@
+// File: package.json
+{
+  "name": "drive-export-action",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Action server to export Google Drive files for a custom GPT",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "health": "node -e \"fetch(process.env.APP_BASE_URL + '/healthz').then(r=>r.text()).then(console.log)\""
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "googleapis": "^140.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
+  }
+}
 
